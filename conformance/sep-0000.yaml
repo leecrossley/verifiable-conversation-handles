@@ -1,0 +1,55 @@
+sep: 0000
+spec_url: conversation-identity-sep-draft.md
+requirements:
+  - text: "Clients supporting this extension MUST advertise it in _meta clientCapabilities.extensions"
+    check: sep-0000-s1-negotiation
+  - text: "Servers supporting this extension MUST advertise it in the server/discover response"
+    check: sep-0000-s1-negotiation
+  - text: "Clients MUST NOT parse, interpret, construct, derive, truncate, re-encode, or modify a handle"
+    check: sep-0000-s2.1-client-opacity
+  - text: "A server issuing conversation handles MUST be able to determine authenticity from the handle alone"
+    check: sep-0000-s6.2-roundtrip
+  - text: "A server MUST reject a presented handle that fails authenticity"
+    check: sep-0000-s6.2-tag-before-parse
+  - text: "Servers MUST record principal association and MUST NOT disclose state to other principals"
+    check: sep-0000-s2.3-cross-principal
+  - text: "Servers MUST authorize every request on the authenticated identity"
+    check: sep-0000-s2.3-unauthenticated
+  - text: "When no handle is present, server MUST mint or return none per onMissingHandle"
+    check: sep-0000-s4.1-establishment
+  - text: "Every response to a request that carried a valid handle MUST rotate seq"
+    check: sep-0000-s4.2-rotation
+  - text: "Servers MUST be able to determine supersession and SHOULD report supersededHandlePresented"
+    check: sep-0000-s4.3-supersession-detect
+  - text: "Servers MUST support exchange for expired but authentic handles"
+    check: sep-0000-s4.4-expiry-exchange
+  - text: "Servers MUST NOT treat an expired handle as valid for the presenting request itself"
+    check: sep-0000-s4.4-expiry-reject
+  - text: "On fork the server MUST mint a fresh cid and record parent"
+    check: sep-0000-s4.5-fork
+  - text: "The handle MUST be carried in params._meta only"
+    check: sep-0000-s5.1-tool-arg-ignored
+  - text: "Servers MUST NOT accept a handle from tool arguments"
+    check: sep-0000-s5.1-tool-arg-ignored
+  - text: "Conversation handles MUST NOT influence tools/list results"
+    check: sep-0000-s6.4-list-invariant
+  - text: "Verifiers MUST compare the tag in constant time and verify tag before interpreting fields"
+    check: sep-0000-s6.2-tag-before-parse
+  - text: "Servers MUST support at least two concurrently valid key_id values"
+    check: sep-0000-s6.2-dual-key-id
+  - text: "onMissingHandle none returns no handle"
+    check: sep-0000-s7-on-missing-none
+  - text: "Servers MUST NOT resolve missing/invalid/expired/retired handles to existing conversation state"
+    check: sep-0000-s8-missing-handle
+  - text: "cid MUST be drawn from a cryptographically strong random source"
+    check: sep-0000-s3-entropy-cid
+  - text: "Servers MUST respect client-advertised maxHandleBytes on presented handles"
+    check: sep-0000-s6.2-max-handle-bytes
+  - text: "Handle failures MUST use the normative §8 error envelope (JSON-RPC or tools/call isError profile)"
+    check: sep-0000-s8-error-code-range
+  - text: "Servers MAY purge conversation records after retention policy elapses"
+    check: sep-0000-s9-retention-purge
+  - text: "Proof-of-possession binding (§5.2)"
+    excluded: "optional MAY; not implemented in v1 reference"
+  - text: "Asymmetric/JWS profile (§6.3)"
+    excluded: "optional MAY; not implemented in v1 reference"
