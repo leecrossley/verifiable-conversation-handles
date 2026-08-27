@@ -1,0 +1,30 @@
+src/fixtures/app.ts
+  s_d537f7855ce27b::t_0fd52e62d10591 12,46,51-53,67,74
+src/fixtures/state-commitment.ts
+  s_d537f7855ce27b::t_3b5e5b25995c96 3
+  s_d537f7855ce27b::t_0fd52e62d10591 1-2,4-6
+conformance/e2e/security.test.ts
+  s_d537f7855ce27b::t_0fd52e62d10591 2,75-85
+  s_d537f7855ce27b::t_8b91fd01586967 86-91
+src/fixtures/state-commitment.test.ts
+  s_d537f7855ce27b::t_0fd52e62d10591 1-16
+conformance/ifc-e2e.test.ts
+  s_d537f7855ce27b::t_3b5e5b25995c96 61
+  s_d537f7855ce27b::t_0fd52e62d10591 14-16,25,34,42,52-53,58-60,68,102,177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "87225b31dc51c5983e01766431e3bdf97c0d8ef0",
+  "prompts": {},
+  "sessions": {
+    "s_d537f7855ce27b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04378-a6d5-7a03-b918-7203f38bdb0f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Lee Crossley <leee@hotmail.co.uk>"
+    }
+  }
+}
