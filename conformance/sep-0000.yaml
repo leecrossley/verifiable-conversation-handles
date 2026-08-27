@@ -4,7 +4,7 @@
 # Renumber `sep:` and all check IDs when the SEP receives its PR number.
 
 sep: 0000
-spec_url: https://modelcontextprotocol.io/extensions/conversation-handle
+spec_url: https://github.com/ryan-s-roberts/verifiable-conversation-handles/blob/main/conversation-identity-sep-draft.md
 requirements:
 
   # ---------------------------------------------------------------- §1 Negotiation
@@ -137,7 +137,7 @@ requirements:
 
   # ---------------------------------------------------------------- §5 Carriage and disclosure
   - check: sep-0000-handle-carried-in-meta
-    text: "The handle MUST be carried in `params._meta[\"io.modelcontextprotocol/conversation-handle\"].handle`"
+    text: "The handle MUST be carried in `params._meta[\"tools.plasm/conversation-handle\"].handle`"
   - check: sep-0000-reject-handle-in-tool-arguments
     text: "Servers MUST NOT accept a conversation handle from tool arguments, resource URIs, prompt arguments, or any other position whose contents are authored by the model; a server that encounters a handle-shaped value in such a position MUST ignore it"
     note: "Central design requirement. Send a valid handle as a tool argument with none in `_meta`; assert no conversation is resolved."

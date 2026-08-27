@@ -1,7 +1,7 @@
 # Verifiable Conversation Handles — TypeScript Reference
 
 > **Experimental extension** — Reference implementation of the draft SEP
-> `io.modelcontextprotocol/conversation-handle`. Not an official MCP extension. API and wire
+> `tools.plasm/conversation-handle`. Not an official MCP extension. API and wire
 > format may change before review.
 
 Implements the RECOMMENDED §6.2 symmetric encoding, server mint/rotate/verify,
@@ -34,7 +34,10 @@ pnpm run example:server
 
 ## Extension identifier
 
-`io.modelcontextprotocol/conversation-handle`
+`tools.plasm/conversation-handle`
+
+If standardised as an official MCP extension, the intended identifier is
+`io.modelcontextprotocol/conversation-handle`.
 
 ## State commitment hook
 

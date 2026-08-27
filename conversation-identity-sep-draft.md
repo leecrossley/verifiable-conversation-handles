@@ -10,7 +10,7 @@
 | **Author(s)** | Ryan Roberts                                                          |
 | **Sponsor**   | _unassigned_                                                          |
 | **PR**        | _pending_                                                             |
-| **Extension** | `io.modelcontextprotocol/conversation-handle`                                     |
+| **Extension** | `tools.plasm/conversation-handle`                                                  |
 | **Requires**  | SEP-2567 (Sessionless MCP), SEP-2575 (per-request protocol fields), SEP-2133 (Extensions) |
 
 ---
@@ -227,8 +227,12 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 The extension identifier is:
 
 ```
-io.modelcontextprotocol/conversation-handle
+tools.plasm/conversation-handle
 ```
+
+This vendor identifier is used while the extension is experimental. If the extension is adopted
+as an official MCP extension, its intended identifier is
+`io.modelcontextprotocol/conversation-handle`.
 
 Clients supporting this extension MUST advertise it in
 `_meta["io.modelcontextprotocol/clientCapabilities"].extensions` on every request on which they
@@ -246,10 +250,10 @@ carry a handle.
       "io.modelcontextprotocol/protocolVersion": "2026-07-28",
       "io.modelcontextprotocol/clientCapabilities": {
         "extensions": {
-          "io.modelcontextprotocol/conversation-handle": { "maxHandleBytes": 1024 }
+          "tools.plasm/conversation-handle": { "maxHandleBytes": 1024 }
         }
       },
-      "io.modelcontextprotocol/conversation-handle": {
+      "tools.plasm/conversation-handle": {
         "handle": "AQGWt3xK9pLmQ0aZeUu4oI6yPqXrEsN8kQ1wXvB6cRc"
       }
     }
@@ -269,7 +273,7 @@ Servers supporting this extension MUST advertise it in the `server/discover` res
     "capabilities": {
       "tools": {},
       "extensions": {
-        "io.modelcontextprotocol/conversation-handle": {
+        "tools.plasm/conversation-handle": {
           "handleLifetimeSeconds": 3600,
           "conversationRetentionSeconds": 2592000,
           "typicalHandleBytes": 100,
@@ -402,7 +406,7 @@ not wish to participate simply does not advertise the extension.
     "content": [{ "type": "text", "text": "No stored preferences for this conversation yet." }],
     "_meta": {
       "io.modelcontextprotocol/serverInfo": { "name": "example-server", "version": "1.0.0" },
-      "io.modelcontextprotocol/conversation-handle": {
+      "tools.plasm/conversation-handle": {
         "handle": "AQGWt3xK9pLmQ0aZeUu4oI6yPqXrEsN8kQ1wXvB6cRc",
         "conversationId": "01JQ8Y2M5V0H8T4RXB6C1WZKQD",
         "seq": 1,
@@ -509,7 +513,7 @@ original.
 A client requests a fork by setting `fork` in the request `_meta`:
 
 ```json
-"io.modelcontextprotocol/conversation-handle": {
+"tools.plasm/conversation-handle": {
   "handle": "AQGWt3xK9pLmQ0aZeUu4oI6yPqXrEsN8kQ1wXvB6cRc",
   "fork": true
 }
@@ -532,7 +536,7 @@ and report it, or return an error. Servers MUST NOT reuse a retired `cid`.
 
 #### 5.1 The handle is carried by the client, not the model
 
-The handle MUST be carried in `params._meta["io.modelcontextprotocol/conversation-handle"].handle`.
+The handle MUST be carried in `params._meta["tools.plasm/conversation-handle"].handle`.
 
 Servers MUST NOT accept a conversation handle from tool arguments, resource URIs, prompt arguments,
 or any other position whose contents are authored by the model. A server that encounters a
@@ -671,7 +675,7 @@ one so a well-behaved client can recover:
     "code": -30001,
     "message": "Conversation handle not recognised",
     "data": {
-      "extension": "io.modelcontextprotocol/conversation-handle",
+      "extension": "tools.plasm/conversation-handle",
       "reason": "handle_expired",
       "remediation": "Re-send with the most recently received handle, or omit it to start a new conversation. Conversation-scoped preferences are not available without one."
     }
@@ -882,7 +886,7 @@ This extension introduces no backward incompatibility with the core protocol.
   are required of anyone.
 - **List endpoints.** Unaffected, normatively (§6.4).
 - **Extension versioning.** Per SEP-2133, breaking changes use a new identifier
-  (`io.modelcontextprotocol/conversation-handle-v2`); additive changes use settings fields. The `version` byte in
+  (`tools.plasm/conversation-handle-v2`); additive changes use settings fields. The `version` byte in
   §6.2 additionally lets a server evolve its own encoding with no protocol change at all, because the
   handle is opaque to clients.
 

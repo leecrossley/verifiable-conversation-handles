@@ -1,10 +1,10 @@
 /**
- * Wire types for io.modelcontextprotocol/conversation-handle (SEP draft).
+ * Wire types for tools.plasm/conversation-handle (SEP draft).
  * Source of truth for JSON shapes; not hand-edited generated artifacts.
  */
 
-export const EXTENSION_ID = 'io.modelcontextprotocol/conversation-handle' as const;
-export const ERROR_EXTENSION_META_KEY = 'io.modelcontextprotocol/conversation-handle-error' as const;
+export const EXTENSION_ID = 'tools.plasm/conversation-handle' as const;
+export const ERROR_EXTENSION_META_KEY = 'tools.plasm/conversation-handle-error' as const;
 
 export const HANDLE_VERSION = 0x01;
 export const CID_BYTE_LENGTH = 16;
