@@ -1,0 +1,26 @@
+conformance/e2e/errors-and-meta.test.ts
+  s_d537f7855ce27b::t_194aba09cdcf87 122
+  s_d537f7855ce27b::t_888965bbd55e36 102
+conformance/e2e/security.test.ts
+  s_d537f7855ce27b::t_935e2a43c84482 94-97
+  s_d537f7855ce27b::t_194aba09cdcf87 6,50,57-93,98-107,120
+src/presentation-resolver.ts
+  s_d537f7855ce27b::t_194aba09cdcf87 29-32,37-38,88-90,93,98,106-107
+  s_d537f7855ce27b::t_464d340c3f181a 108-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c66f541fa992710abe4ba559e1d722a41352ec06",
+  "prompts": {},
+  "sessions": {
+    "s_d537f7855ce27b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04378-a6d5-7a03-b918-7203f38bdb0f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Lee Crossley <leee@hotmail.co.uk>"
+    }
+  }
+}
