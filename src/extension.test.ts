@@ -15,10 +15,12 @@ const TEST_KEYS: codec.HandleKey[] = [
 function extensionCtx(handle?: string): ServerContext {
   return {
     mcpReq: {
-      _meta: {
+      envelope: {
         [CLIENT_CAPABILITIES_META_KEY]: {
           extensions: { [EXTENSION_ID]: {} },
         },
+      },
+      _meta: {
         ...(handle ? { [EXTENSION_ID]: { handle } } : {}),
       },
     },
