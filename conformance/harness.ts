@@ -2,7 +2,12 @@ import { Client } from '@modelcontextprotocol/client';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { HandleKey } from '../src/codec.js';
 import { ConversationHandleClient } from '../src/client.js';
-import { createConversationFixtureApp } from '../src/fixtures/app.js';
+import {
+  createConversationFixtureApp,
+  createIfcFixtureApp,
+  type FixtureApp,
+  type IfcFixtureApp,
+} from '../src/fixtures/app.js';
 import { memoryFixtureTools } from '../src/fixtures/memory-tools.js';
 import { serveMcpEphemeral } from '../src/http-server.js';
 import { EXTENSION_ID, ERROR_CODE_HANDLE_NOT_RECOGNIZED } from '../src/schema/draft/schema.js';
@@ -26,24 +31,34 @@ export interface TestHarness {
   manager: ReturnType<typeof createConversationFixtureApp>['manager'];
 }
 
-export async function startTestHarness(options: TestHarnessOptions = {}): Promise<TestHarness> {
-  const app = createConversationFixtureApp({
-    keys: TEST_KEYS,
-    resolvePrincipal: (ctx) => {
-      const principal = ctx.http?.authInfo?.extra?.principal;
-      return typeof principal === 'string' ? principal : undefined;
-    },
-    now: options.now,
-    settings: {
-      handleLifetimeSeconds: 3600,
-      conversationRetentionSeconds: options.retentionSeconds ?? 86_400,
-      onMissingHandle: options.onMissingHandle ?? 'new-conversation',
-      maxHandleBytes: options.maxHandleBytes ?? 1024,
-    },
-    serverName: 'conversation-handle-test',
-    serverVersion: '0.0.0',
-  });
+export interface IfcTestHarness extends TestHarness {
+  journal: IfcFixtureApp['journal'];
+}
 
+function resolvePrincipal(ctx: { http?: { authInfo?: { extra?: Record<string, unknown> } } }) {
+  const principal = ctx.http?.authInfo?.extra?.principal;
+  return typeof principal === 'string' ? principal : undefined;
+}
+
+function harnessSettings(options: TestHarnessOptions = {}) {
+  return {
+    handleLifetimeSeconds: 3600,
+    conversationRetentionSeconds: options.retentionSeconds ?? 86_400,
+    onMissingHandle: options.onMissingHandle ?? 'new-conversation',
+    maxHandleBytes: options.maxHandleBytes ?? 1024,
+  } as const;
+}
+
+function pluginOptions(options: TestHarnessOptions = {}) {
+  return {
+    keys: TEST_KEYS,
+    resolvePrincipal,
+    now: options.now,
+    settings: harnessSettings(options),
+  };
+}
+
+async function serveFixtureApp(app: FixtureApp): Promise<TestHarness> {
   const http = await serveMcpEphemeral(app.handler);
   return {
     url: http.url,
@@ -53,6 +68,38 @@ export async function startTestHarness(options: TestHarnessOptions = {}): Promis
       await http.close();
     },
   };
+}
+
+export async function startTestHarness(options: TestHarnessOptions = {}): Promise<TestHarness> {
+  return serveFixtureApp(
+    createConversationFixtureApp({
+      ...pluginOptions(options),
+      serverName: 'conversation-handle-test',
+      serverVersion: '0.0.0',
+    }),
+  );
+}
+
+export async function startIfcTestHarness(options: TestHarnessOptions = {}): Promise<IfcTestHarness> {
+  const app = createIfcFixtureApp({
+    ...pluginOptions(options),
+    serverName: 'conversation-handle-ifc-test',
+    serverVersion: '0.0.0',
+  });
+  const base = await serveFixtureApp(app);
+  return { ...base, journal: app.journal };
+}
+
+export async function withHarness<T>(
+  fn: (harness: TestHarness) => Promise<T>,
+  options: TestHarnessOptions = {},
+): Promise<T> {
+  const harness = await startTestHarness(options);
+  try {
+    return await fn(harness);
+  } finally {
+    await harness.close();
+  }
 }
 
 export async function withClient<T>(
@@ -114,9 +161,69 @@ export function metaFromResult(result: unknown): unknown {
   return (result as { _meta?: Record<string, unknown> })._meta?.[EXTENSION_ID];
 }
 
+/** Apply response metas in arbitrary order (for client seq-ordering tests). */
+export function acceptMetaOutOfOrder(
+  handleClient: ConversationHandleClient,
+  metas: unknown[],
+  sessionKey = 'default',
+): void {
+  for (const meta of metas) {
+    handleClient.acceptResponseMeta(meta, sessionKey);
+  }
+}
+
+export function handleMetaFromResult(result: unknown): {
+  handle: string;
+  seq: number;
+  conversationId?: string;
+  supersededHandlePresented?: boolean;
+} | undefined {
+  const meta = metaFromResult(result);
+  if (!meta || typeof meta !== 'object') {
+    return undefined;
+  }
+  return meta as {
+    handle: string;
+    seq: number;
+    conversationId?: string;
+    supersededHandlePresented?: boolean;
+  };
+}
+
 export function textFromResult(result: unknown): string {
   const content = (result as { content?: Array<{ type: string; text?: string }> }).content;
   return content?.[0]?.text ?? '';
+}
+
+export async function callReceivePii(
+  client: Client,
+  handleClient: ConversationHandleClient,
+  sessionKey = 'default',
+): Promise<{ result: unknown; handleMeta: unknown }> {
+  const result = await client.callTool({
+    name: 'receive_pii',
+    arguments: {},
+    _meta: handleClient.buildRequestMeta(sessionKey),
+  });
+  const meta = (result as { _meta?: Record<string, unknown> })._meta?.[EXTENSION_ID];
+  handleClient.acceptResponseMeta((result as { _meta?: Record<string, unknown> })._meta, sessionKey);
+  return { result, handleMeta: meta };
+}
+
+export async function callEgressPost(
+  client: Client,
+  handleClient: ConversationHandleClient,
+  destination: string,
+  body: string,
+  sessionKey = 'default',
+): Promise<{ result: unknown; handleMeta: unknown }> {
+  const result = await client.callTool({
+    name: 'egress_post',
+    arguments: { destination, body },
+    _meta: handleClient.buildRequestMeta(sessionKey),
+  });
+  handleClient.acceptResponseMeta((result as { _meta?: Record<string, unknown> })._meta, sessionKey);
+  return { result, handleMeta: metaFromResult(result) };
 }
 
 export { memoryFixtureTools, ERROR_CODE_HANDLE_NOT_RECOGNIZED };

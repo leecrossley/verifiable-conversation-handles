@@ -7,10 +7,10 @@
 | **Status**    | draft                                                                 |
 | **Type**      | Extensions Track                                                      |
 | **Created**   | 2026-08-26                                                            |
-| **Author(s)** | Ryan Roberts (Plasm)                                                  |
+| **Author(s)** | Ryan Roberts                                                          |
 | **Sponsor**   | _unassigned_                                                          |
 | **PR**        | _pending_                                                             |
-| **Extension** | `tools.plasm/conversation-handle`                                     |
+| **Extension** | `io.modelcontextprotocol/conversation-handle`                                     |
 | **Requires**  | SEP-2567 (Sessionless MCP), SEP-2575 (per-request protocol fields), SEP-2133 (Extensions) |
 
 ---
@@ -55,16 +55,17 @@ key in each direction.
 
 ### 1. Everyone is already building this, incompatibly and out of band
 
-Durable conversation identity is not a speculative requirement. It is a solved problem in five
-different proprietary ways, none of which interoperate:
+Durable conversation identity is not a speculative requirement. Six widely-deployed systems solve
+it today, each in its own way, none of which interoperate:
 
 | System | Mechanism | Supplied by |
 | ------ | --------- | ----------- |
 | **Microsoft Foundry Agent Service** | `scope` set to `"{{$userId}}"` in the tool definition, plus an `x-memory-user-id: <user-id>` HTTP header on each call | the caller |
 | **mem0** and comparable memory layers | multi-scope tagging: each write carries `user_id`, `agent_id`, `run_id`/`session_id`, `app_id`/`org_id` | the caller |
-| **MCP memory servers** | `store`/`retrieve` tools taking a caller-chosen key | the caller, often the model |
 | **LangGraph** | `thread_id`, checkpointed under a composite `{user}:{thread_id}` key | the caller |
 | **OpenAI Responses API** | `previous_response_id` chains a conversation across stateless calls | the caller |
+| **MCP memory servers** | generic `store` / `retrieve` tools keyed on a caller-chosen session or user identifier passed as a tool argument | the caller |
+| **Plasm** | durable agent runtime combining memory, information-flow enforcement, and conversation-scoped tool policy | the server |
 
 The pattern is identical in every case, and so are its consequences:
 
@@ -76,12 +77,12 @@ The pattern is identical in every case, and so are its consequences:
 | **Not restart-safe by construction** | Whether the identifier survives a client restart depends on whether the vendor happened to design for it. |
 | **Model-selectable** | Where the identifier is a tool argument, the model chooses it — including choosing a different one, an older one, or another conversation's. |
 
-Foundry is the most rigorous of the five. Its `x-memory-user-id` header is trustworthy within a
+Foundry is the most rigorous of the six. Its `x-memory-user-id` header is trustworthy within a
 deployment that controls its callers, because nothing untrusted can set it. That condition does not
 hold across an open ecosystem. The mechanism is a private header because the protocol defines no
 equivalent.
 
-The same primitive is absent in all five cases.
+The same primitive is absent in all six cases.
 
 ### 2. The core protocol already requires this, and does not define it
 
@@ -226,7 +227,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 The extension identifier is:
 
 ```
-tools.plasm/conversation-handle
+io.modelcontextprotocol/conversation-handle
 ```
 
 Clients supporting this extension MUST advertise it in
@@ -245,10 +246,10 @@ carry a handle.
       "io.modelcontextprotocol/protocolVersion": "2026-07-28",
       "io.modelcontextprotocol/clientCapabilities": {
         "extensions": {
-          "tools.plasm/conversation-handle": { "maxHandleBytes": 1024 }
+          "io.modelcontextprotocol/conversation-handle": { "maxHandleBytes": 1024 }
         }
       },
-      "tools.plasm/conversation-handle": {
+      "io.modelcontextprotocol/conversation-handle": {
         "handle": "AQGWt3xK9pLmQ0aZeUu4oI6yPqXrEsN8kQ1wXvB6cRc"
       }
     }
@@ -268,7 +269,7 @@ Servers supporting this extension MUST advertise it in the `server/discover` res
     "capabilities": {
       "tools": {},
       "extensions": {
-        "tools.plasm/conversation-handle": {
+        "io.modelcontextprotocol/conversation-handle": {
           "handleLifetimeSeconds": 3600,
           "conversationRetentionSeconds": 2592000,
           "typicalHandleBytes": 100,
@@ -290,8 +291,7 @@ Settings fields are defined in §7.
 
 A conversation handle MUST be represented on the wire as a single JSON string.
 
-The handle is **opaque to the client**. Clients MUST NOT parse, interpret, construct, derive,
-truncate, re-encode, or modify a handle. Clients MUST treat it as an uninterpreted string and return
+The handle is **opaque to the client**. Clients MUST treat it as an uninterpreted string and return
 it verbatim.
 
 Servers MUST NOT require clients to understand a handle's internal structure. §6 specifies a
@@ -300,13 +300,13 @@ consumption.
 
 #### 2.2 Properties a server MUST guarantee
 
-This specification constrains what a server must be able to establish from a presented handle, not
-how it encodes one. A server issuing conversation handles MUST be able to determine, from the handle
-alone together with server-held key material and **without consulting a store**:
+This specification constrains what a server establishes from a presented handle, not how it encodes
+one. A conforming handle determines each of the following from the handle alone, together with
+server-held key material and **without consulting a store**:
 
 | Property | Requirement |
 | -------- | ----------- |
-| **Authenticity** | The server MUST be able to verify that it issued this exact handle and that it has not been modified. Handles MUST be integrity-protected under key material held only by the issuing deployment. |
+| **Authenticity** | Handles MUST be integrity-protected under key material held only by the issuing deployment. A server MUST reject a presented handle that it did not issue, or that has been modified. |
 | **Conversation identifier (`cid`)** | The handle MUST determine a stable conversation identifier, generated by the server from a cryptographically secure source with at least 128 bits of entropy, constant across every handle issued for that conversation. |
 | **Expiry (`exp`)** | The handle MUST determine an absolute expiry. |
 | **Sequence (`seq`)** | The handle MUST determine a sequence number that strictly increases with each handle the server issues for a given `cid`. |
@@ -315,8 +315,8 @@ alone together with server-held key material and **without consulting a store**:
 A server MUST reject a presented handle that fails authenticity or whose `exp` has passed, except
 for exchange under §4.4.
 
-Servers MUST NOT include in a handle any value whose disclosure would be harmful if the handle were
-read by the model, written to a transcript, or copied into a log (§5.3).
+Handles may be read by the model, written to a transcript, or copied into a log. §5.3 states what a
+server MUST NOT place in one.
 
 #### 2.3 The handle carries no principal, and is not an authorization credential
 
@@ -329,9 +329,9 @@ authenticated identity carried by the transport's authorization layer, exactly a
 handle were present.
 
 Association between a principal and a conversation is **server-side policy**, not token payload.
-Servers that store conversation-scoped data on behalf of a principal MUST record the association
-when a conversation is minted, and MUST NOT disclose or mutate conversation-scoped state on behalf of
-a principal other than the one the conversation is associated with. How a server represents and
+A server MUST NOT disclose or mutate conversation-scoped state on behalf of a principal other than
+the one the conversation is associated with. Servers establish that association when a conversation
+is minted. How a server represents and
 enforces that association is out of scope, and servers SHOULD document it.
 
 > **Note.** The obligation rests on the server rather than on the handle. §"Rationale" sets out the
@@ -352,9 +352,9 @@ include and check an explicit audience value.
 The state commitment is an **opaque, server-defined value** that a server MAY embed in a handle and
 that is returned to the server unmodified on the next request.
 
-This specification assigns it no meaning. It MUST NOT be interpreted by the client, and MUST NOT be
-interpreted by any party other than the issuing server. This specification defines no vocabulary, no
-structure, and no semantics for its contents.
+This specification assigns it no meaning, and defines no vocabulary, structure, or semantics for its
+contents. It is meaningful only to the issuing server; clients return it verbatim as part of the
+handle (§2.1).
 
 Servers MUST treat the state commitment as advisory input to their own logic, and MUST NOT treat its
 presence or its contents as authorization for anything.
@@ -401,8 +401,8 @@ not wish to participate simply does not advertise the extension.
     "resultType": "complete",
     "content": [{ "type": "text", "text": "No stored preferences for this conversation yet." }],
     "_meta": {
-      "io.modelcontextprotocol/serverInfo": { "name": "plasm-mcp", "version": "0.9.0" },
-      "tools.plasm/conversation-handle": {
+      "io.modelcontextprotocol/serverInfo": { "name": "example-server", "version": "1.0.0" },
+      "io.modelcontextprotocol/conversation-handle": {
         "handle": "AQGWt3xK9pLmQ0aZeUu4oI6yPqXrEsN8kQ1wXvB6cRc",
         "conversationId": "01JQ8Y2M5V0H8T4RXB6C1WZKQD",
         "seq": 1,
@@ -414,29 +414,46 @@ not wish to participate simply does not advertise the extension.
 }
 ```
 
-`conversationId`, `seq`, `expiresAt`, and `supersededHandlePresented` are advisory mirrors, provided
-so clients can make routing, UI, and diagnostic decisions without parsing the handle. Servers MUST
-NOT accept them as input. Clients MUST NOT rely on them for security decisions and MUST NOT attempt
-to reconstruct a handle from them.
+`conversationId`, `seq`, `expiresAt`, and `supersededHandlePresented` mirror values the handle
+already carries, so that clients can make routing, UI, and diagnostic decisions without parsing it.
+Servers MUST NOT accept them as input.
+
+Clients MUST use `seq` solely to order handles they have received (§4.2). Clients MUST NOT rely on
+any mirrored field for a security decision, and MUST NOT attempt to reconstruct a handle from them.
+
+The distinction is that `seq` is authoritative for ordering but not for security. A client misled
+about `seq` presents a handle the server then rejects or supersedes, which is a
+correctness-preserving failure; a client relying on `conversationId` for an access decision is not.
 
 #### 4.2 Rotation
 
-Every response to a request that carried a valid handle MUST include a replacement handle with a
-strictly greater `seq`.
+A server MAY include a replacement handle in any response to a request that carried a valid handle.
 
-Clients MUST send the most recently received handle for a conversation on the next request in that
-conversation, and SHOULD discard superseded handles.
+A server MUST include a replacement handle when the state commitment it requires on subsequent
+requests differs from the value carried by the presented handle. Issuing a replacement is the only
+means of changing the value a client returns.
 
-Rotation makes short expiry compatible with long conversations, bounds the useful lifetime of any
-single leaked handle, and gives §4.3 something to compare.
+A server SHOULD include a replacement handle when the remaining lifetime of the presented handle is
+less than half of `handleLifetimeSeconds`, so that clients are not driven into exchange (§4.4)
+during normal operation.
+
+Every replacement handle MUST carry a `seq` strictly greater than every `seq` the server has
+previously issued for that `cid`.
+
+Clients MUST send the handle with the highest `seq` they have received for that conversation.
+Clients SHOULD discard a handle carrying a lower `seq` than one they have already received.
+
+Rotation makes short expiry compatible with long conversations and bounds the lifetime of any single
+handle. It is discretionary rather than per-response because rotating on every response would make
+supersession (§4.3) the guaranteed outcome of any concurrent request, and therefore useless as a
+signal. §"Rationale" states the resulting exposure tradeoff.
 
 #### 4.3 Supersession is detectable; the response to it is the server's
 
 Because `seq` strictly increases per `cid`, a server can determine whether a presented handle is the
 most recent one it issued for that conversation.
 
-Servers MUST be able to make this determination. Servers MUST NOT assume a presented handle is
-current merely because it is authentic and unexpired.
+A server MUST NOT treat a presented handle as current solely because it is authentic and unexpired.
 
 **What a server does on detecting supersession is entirely server policy, and this specification
 does not constrain it.** Servers SHOULD document their behaviour. Non-normative illustrations of
@@ -452,8 +469,15 @@ These are legitimate and different; a snapshot read is correct for a memory stor
 IFC runtime. The protocol's contribution is that supersession is *detectable* at all. Today it is
 not, because there is nothing to compare.
 
-Servers SHOULD report supersession via `supersededHandlePresented` so clients can surface
-synchronization problems, whether or not the server changed its behaviour as a result.
+A server SHOULD set `supersededHandlePresented` to `true` in the response when the presented handle
+is not the most recent one it has issued for that `cid`, whether or not the server changed its
+behaviour as a result.
+
+Under the rotation policy in §4.2 supersession is uncommon: a client following §4.2 presents the
+highest `seq` it holds, and a server that has not rotated has nothing newer to compare against. It
+remains possible without client error, because a server that rotates while requests are in flight
+supersedes every handle already dispatched. A server MUST NOT reject a request solely because the
+handle it presented was superseded.
 
 > **Note on statelessness.** Verifying a handle (§2.2) requires no lookup. Determining whether it is
 > *superseded* requires comparing against the conversation's recorded state, which is a lookup —
@@ -485,7 +509,7 @@ original.
 A client requests a fork by setting `fork` in the request `_meta`:
 
 ```json
-"tools.plasm/conversation-handle": {
+"io.modelcontextprotocol/conversation-handle": {
   "handle": "AQGWt3xK9pLmQ0aZeUu4oI6yPqXrEsN8kQ1wXvB6cRc",
   "fork": true
 }
@@ -508,7 +532,7 @@ and report it, or return an error. Servers MUST NOT reuse a retired `cid`.
 
 #### 5.1 The handle is carried by the client, not the model
 
-The handle MUST be carried in `params._meta["tools.plasm/conversation-handle"].handle`.
+The handle MUST be carried in `params._meta["io.modelcontextprotocol/conversation-handle"].handle`.
 
 Servers MUST NOT accept a conversation handle from tool arguments, resource URIs, prompt arguments,
 or any other position whose contents are authored by the model. A server that encounters a
@@ -571,9 +595,9 @@ tag    = HMAC-SHA256(handle_key, body) truncated to 16 bytes
 handle = BASE64URL( body ‖ tag )       (unpadded)
 ```
 
-Verifiers MUST compare the tag in constant time. Verifiers MUST verify the tag before interpreting
-any other field. Verifiers MUST check `exp` before using the handle for anything other than exchange
-(§4.4). Servers MUST support at least two concurrently valid `key_id` values so key rotation does
+A verifier MUST reject a handle whose tag does not verify, whatever the values of the other fields.
+A verifier MUST reject a handle whose `exp` has passed, except for exchange (§4.4). Tag comparison
+SHOULD be constant-time. Servers MUST support at least two concurrently valid `key_id` values so key rotation does
 not invalidate live conversations.
 
 Sizes: with an empty state commitment the handle is 58 characters; with a 32-byte state commitment,
@@ -647,7 +671,7 @@ one so a well-behaved client can recover:
     "code": -30001,
     "message": "Conversation handle not recognised",
     "data": {
-      "extension": "tools.plasm/conversation-handle",
+      "extension": "io.modelcontextprotocol/conversation-handle",
       "reason": "handle_expired",
       "remediation": "Re-send with the most recently received handle, or omit it to start a new conversation. Conversation-scoped preferences are not available without one."
     }
@@ -785,6 +809,25 @@ The cost is stated in §"Security Implications": the cross-principal check moves
 credential enforces structurally to something the server implements. §2.3 makes it a MUST; a MUST is
 not a structural guarantee.
 
+**Why rotation is discretionary rather than per-response, and what that costs.** Rotating on every
+response would make supersession the guaranteed outcome of any concurrency. With `N` requests in
+flight carrying the same handle, a server that rotates on the first response it issues supersedes
+the `N-1` requests already dispatched. Parallel tool calls are the normal case in agent runtimes, so
+supersession would be the steady state rather than a signal, and §4.3's flag would report a
+condition that carries no information.
+
+The cost is exposure. Under per-response rotation a leaked handle is superseded almost immediately,
+and its useful lifetime is roughly one round-trip. Under §4.2 a handle stays current until the server
+chooses to rotate, so a leaked handle is useful for as long as it remains unexpired — bounded by
+`handleLifetimeSeconds` rather than by the next response. That is a real weakening, and the
+mitigations are to keep `handleLifetimeSeconds` short and, where available, to bind the handle to a
+proof-of-possession key (§5.2), which defeats replay regardless of lifetime.
+
+The trade is deliberate: a diagnostic signal that works, against a shorter exposure window. A server
+handling sensitive conversation state can recover most of the exposure margin by setting a short
+lifetime, and can rotate more aggressively than §4.2 requires, since rotation is permitted on any
+response.
+
 **Why supersession detection is normative but supersession policy is not.** Ordering is the one
 property a consumer cannot recover on its own — without a sequence there is nothing to compare, so a
 replayed handle is indistinguishable from a current one for *every* consumer. That makes it a
@@ -839,7 +882,7 @@ This extension introduces no backward incompatibility with the core protocol.
   are required of anyone.
 - **List endpoints.** Unaffected, normatively (§6.4).
 - **Extension versioning.** Per SEP-2133, breaking changes use a new identifier
-  (`tools.plasm/conversation-handle-v2`); additive changes use settings fields. The `version` byte in
+  (`io.modelcontextprotocol/conversation-handle-v2`); additive changes use settings fields. The `version` byte in
   §6.2 additionally lets a server evolve its own encoding with no protocol change at all, because the
   handle is opaque to clients.
 
@@ -914,6 +957,14 @@ therefore not a correlator for anyone not given it. Because handles may persist 
 indefinitely, servers SHOULD keep lifetimes short. Servers SHOULD document conversation retention,
 since conversation-scoped state is typically personal data.
 
+**Handle accumulation in transcripts.** Each replacement handle issued under §4.2 is deposited
+wherever the conversation is recorded, so a conversation accumulates one handle per rotation rather
+than a single handle. Every one of them remains valid until its own `exp`, so the exposure at any
+moment is a set of handles rather than one. Discretionary rotation (§4.2) bounds the size of that
+set by the rotation frequency the server chooses rather than by the length of the conversation.
+Servers SHOULD account for this when setting `handleLifetimeSeconds`: the relevant quantity is the
+number of unexpired handles a conversation has produced, not the number in the most recent turn.
+
 **Handle size.** The RECOMMENDED encoding yields 58–100 characters (§6.2). Where handles reach model
 context this is a modest cost, and rotation means only the most recent needs retaining.
 
@@ -935,31 +986,10 @@ runtime does not satisfy it.
 | Client: persist per conversation, attach to request `_meta`, discard superseded | §4.2. This is the half that makes the proposal testable and the half no existing pattern exercises. |
 | Capability advertisement | §1, both directions. |
 
-**Which SDK.** TypeScript and Python are the SDKs where client-side behaviour can be demonstrated end
-to end against deployed hosts, which makes either the stronger basis for review. The Rust SDK is the
-likely first implementation; a Rust-only prototype demonstrates the server half more readily than the
-client half, and the client half carries the novel requirement. Sequence: Rust first, then TypeScript
-or Python before review.
-
-**Plasm.** Plasm (<https://plasm.tools>, <https://github.com/PlasmTools/plasm-core>) is a typed
-planning language and runtime. It is a consumer of this mechanism; it does not implement it.
-
-Plasm's conversation reference, `logical_session_ref`, is server-minted and unguessable — an `l_`
-prefix over 16 UUID bytes — and is checked against a server-side ownership record on every entry
-point that accepts it, following SEP-2567's `(handle, auth_context)` guidance. It differs from this
-specification in three respects:
-
-- it is passed as a **tool argument**, exactly the SEP-2567 pattern, which makes it model output and
-  therefore selectable by a compromised model;
-- it is **not integrity-protected**, so validity cannot be established at the edge and every check
-  costs a store lookup — which is why the deployment needs a shared Redis mirror to run more than one
-  replica;
-- it has **no expiry and no sequence number**, so a reference from any earlier point in a
-  conversation is byte-identical to the current one, and supersession is undetectable in principle
-  rather than merely unimplemented.
-
-The companion document `conversation-identity-gap-analysis.md` sets out what Plasm would change to
-consume the extension. That work is separate from the SDK implementation above.
+**Which SDK.** The TypeScript and Python SDKs are where the client half can be demonstrated end to
+end against deployed hosts, which makes either a sufficient basis for review. The client half carries
+the requirement no existing pattern exercises, so an implementation that covers only the server half
+does not satisfy this section.
 
 **Conformance.** As an Extensions Track SEP with observable protocol behaviour, this proposal
 requires a conformance scenario and an `sep-NNNN.yaml` traceability file mapping each MUST/MUST NOT

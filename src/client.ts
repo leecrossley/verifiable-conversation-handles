@@ -8,25 +8,47 @@ import {
   type ConversationHandleResponseMeta,
 } from './schema/draft/schema.js';
 
+/** Per-conversation client state. Handle remains opaque; seq mirror used only for ordering (§4.1). */
+export interface ConversationSession {
+  handle?: string;
+  highestSeq: number;
+  conversationId?: string;
+}
+
+const MAX_HANDLE_SEQ = 0xffff_ffff;
+
+/** Parse advisory seq mirror; rejects non-integer, negative, or out-of-range values. */
+export function parseAdvisorySeq(seq: unknown): number | undefined {
+  if (typeof seq !== 'number' || !Number.isSafeInteger(seq) || seq < 0 || seq > MAX_HANDLE_SEQ) {
+    return undefined;
+  }
+  return seq;
+}
+
 /**
- * Opaque client-side handle persistence. Never parses or mutates handles.
+ * Opaque client-side handle persistence with seq-aware merge for concurrent responses.
+ * Clients MUST send the highest-seq handle (§4.2) and SHOULD discard lower-seq replacements.
  */
 export class ConversationHandleClient {
-  private readonly handles = new Map<string, string | undefined>();
+  private readonly sessions = new Map<string, ConversationSession>();
   private readonly maxHandleBytes?: number;
 
   constructor(settings?: ClientExtensionSettings) {
     this.maxHandleBytes = settings?.maxHandleBytes;
   }
 
+  getSession(sessionKey = 'default'): Readonly<ConversationSession> {
+    return this.getOrCreateSession(sessionKey);
+  }
+
   /** Returns the latest handle verbatim, or undefined when none is stored. */
   getHandle(sessionKey = 'default'): string | undefined {
-    return this.handles.get(sessionKey);
+    return this.getOrCreateSession(sessionKey).handle;
   }
 
   /**
-   * Stores the server-issued handle verbatim. Discards superseded handles by replacement.
-   * MUST NOT parse, construct, or modify the string (SEP §2.1).
+   * Stores the server-issued handle when its advisory `seq` is not lower than the stored highest.
+   * Out-of-order concurrent responses therefore cannot regress the client's handle.
    */
   acceptResponseMeta(meta: unknown, sessionKey = 'default'): void {
     if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
@@ -36,14 +58,30 @@ export class ConversationHandleClient {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       return;
     }
-    const handle = (payload as ConversationHandleResponseMeta).handle;
+    const response = payload as ConversationHandleResponseMeta;
+    const handle = response.handle;
     if (typeof handle !== 'string') {
       return;
     }
     if (this.maxHandleBytes !== undefined && Buffer.byteLength(handle, 'utf8') > this.maxHandleBytes) {
       throw new Error('server issued handle exceeding maxHandleBytes');
     }
-    this.handles.set(sessionKey, handle);
+
+    const seq = parseAdvisorySeq(response.seq);
+    if (seq === undefined) {
+      return;
+    }
+
+    const session = this.getOrCreateSession(sessionKey);
+    if (seq < session.highestSeq) {
+      return;
+    }
+
+    session.highestSeq = seq;
+    session.handle = handle;
+    if (typeof response.conversationId === 'string') {
+      session.conversationId = response.conversationId;
+    }
   }
 
   /**
@@ -74,11 +112,37 @@ export class ConversationHandleClient {
   }
 
   clear(sessionKey = 'default'): void {
-    this.handles.delete(sessionKey);
+    this.sessions.delete(sessionKey);
   }
 
-  /** Test-only injection of an opaque handle without parsing it. */
+  /** Test-only injection of session state without parsing the handle. */
+  testOnlySetSession(
+    session: { handle?: string; highestSeq?: number; conversationId?: string },
+    sessionKey = 'default',
+  ): void {
+    const target = this.getOrCreateSession(sessionKey);
+    if (session.handle !== undefined) {
+      target.handle = session.handle;
+    }
+    if (session.highestSeq !== undefined) {
+      target.highestSeq = session.highestSeq;
+    }
+    if (session.conversationId !== undefined) {
+      target.conversationId = session.conversationId;
+    }
+  }
+
+  /** @deprecated Use testOnlySetSession for handle + seq together. */
   testOnlySetHandle(handle: string, sessionKey = 'default'): void {
-    this.handles.set(sessionKey, handle);
+    this.testOnlySetSession({ handle }, sessionKey);
+  }
+
+  private getOrCreateSession(sessionKey: string): ConversationSession {
+    let session = this.sessions.get(sessionKey);
+    if (!session) {
+      session = { highestSeq: 0 };
+      this.sessions.set(sessionKey, session);
+    }
+    return session;
   }
 }

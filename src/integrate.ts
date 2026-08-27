@@ -1,25 +1,18 @@
 import type { McpServer } from '@modelcontextprotocol/server';
-import { z } from 'zod';
+import type { z } from 'zod';
 import type { ConversationHandleManager, ToolHandler } from './extension.js';
 import { EXTENSION_ID } from './schema/draft/schema.js';
 
-const memoryAppendSchema = z.object({ text: z.string() });
-const memoryReadSchema = z.object({});
-
-function inputSchemaFor(name: string) {
-  if (name === 'memory_append') {
-    return memoryAppendSchema;
-  }
-  if (name === 'memory_read') {
-    return memoryReadSchema;
-  }
-  return z.object({});
+export interface ConversationToolDefinition {
+  description?: string;
+  inputSchema: z.ZodTypeAny;
+  handler: ToolHandler;
 }
 
 export function registerConversationTools(
   mcp: McpServer,
   manager: ConversationHandleManager,
-  tools: Record<string, ToolHandler>,
+  tools: Record<string, ConversationToolDefinition>,
 ): void {
   mcp.server.registerCapabilities({
     extensions: {
@@ -27,15 +20,15 @@ export function registerConversationTools(
     },
   });
 
-  for (const [name, handler] of Object.entries(tools)) {
+  for (const [name, tool] of Object.entries(tools)) {
     mcp.registerTool(
       name,
       {
-        description: `Fixture tool: ${name}`,
-        inputSchema: inputSchemaFor(name),
+        description: tool.description ?? `Conversation tool: ${name}`,
+        inputSchema: tool.inputSchema,
       },
       async (args, ctx) => {
-        const result = await manager.invokeToolHandler(ctx, args as Record<string, unknown>, handler);
+        const result = await manager.invokeToolHandler(ctx, args as Record<string, unknown>, tool.handler);
         return {
           content: result.content,
           ...(result.isError ? { isError: true as const } : {}),

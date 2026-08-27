@@ -1,6 +1,6 @@
 # Verifiable Conversation Handles — Rationale, Threat Model, and Known Weaknesses
 
-Companion to `conversation-identity-sep-draft.md`, covering the threat model, the design reasoning,
+Companion to `0000-verifiable-conversation-handles.md`, covering the threat model, the design reasoning,
 and the known weaknesses of the proposal. §6 states the objections the design is most exposed to.
 
 Information-flow control appears in §5 as one consumer among several. It is the consumer with the
@@ -81,9 +81,9 @@ fix in all cases.
 
 ### 3.1 The five in-the-wild mechanisms
 
-Foundry's `x-memory-user-id` header, mem0's scope tags, MCP memory servers' caller-chosen keys,
-LangGraph's `thread_id`, and OpenAI's `previous_response_id` are all the same shape: **an identifier
-the caller supplies and the server takes on trust.**
+Foundry's `x-memory-user-id` header, mem0's scope tags, LangGraph's `thread_id`, OpenAI's
+`previous_response_id`, and the caller-chosen keys of MCP memory servers are all the same shape: **an identifier the caller supplies and the server
+takes on trust.**
 
 Each works inside a deployment that controls its callers. None survives an open ecosystem, and none
 gives the server ordering — no mechanism in that list lets a server tell whether the identifier it
@@ -153,7 +153,12 @@ conversation an act belongs to*.
 ## 4. The design decisions that carry the proposal
 
 **Carriage in `_meta`, not tool arguments.** Removes the model from the choice of conversation.
-Without this, everything else is defeated by the model choosing a different handle.
+Without this, everything else is defeated by the model choosing a different handle. It also makes the
+handle independent of the transcript: SEP-2567's handles are prompt content and can be summarised
+away, whereas a handle the client holds and attaches per request is untouched by context compaction.
+SEP-2567 treats transcript residence as a resumption feature — handles persist because chats persist
+— but the same property is what makes them fragile. `_meta` carriage separates the two, so
+persistence becomes deliberate rather than incidental.
 
 **A MAC rather than a random string plus a lookup table.** Both are unforgeable; only the MAC is
 verifiable without storage. A random-handle design recreates, at the application layer, precisely the
@@ -164,7 +169,7 @@ design with that property would be proposing something already rejected.
 The honest boundary: the MAC makes *validity* stateless, not everything. Conversation state lives on
 the server by definition; supersession detection reads the conversation record (though it adds no
 round-trip, since the server loads that record anyway); and revocation genuinely regresses, because a
-denylist must be consulted on every request. The spec's answer is short lifetimes plus rotation
+denylist must be consulted on every request. The specification's answer is short lifetimes plus rotation
 rather than pretending revocation is free.
 
 **A monotonic sequence, with detection normative and policy not.** Ordering is the property no
@@ -206,17 +211,18 @@ replayed handle detectable. On that foundation the runtime can key a label journ
 the state commitment, and — under its own supersession policy — apply current labels rather than the
 ones an old handle names.
 
-### 5.2 Label creep — Plasm's problem, not MCP's
+### 5.2 Label creep — the consumer's problem, not the protocol's
 
 **The objection:** monotone conversation-scoped labels converge to "everything tainted, nothing
 permitted." Any agent that browses the web is `untrusted` within a turn or two; thereafter every
 guarded write is denied or escalated, and the agent becomes useless in exactly the long-horizon
 workflows that motivate agents.
 
-**Why it is hard:** an LLM context window merges everything in it. Plasm gets field-level granularity
-*inside* a plan because a plan is a typed program the runtime can read; across turns the connecting
-medium is the model's context, whose transfer function is join-everything. There is no sound way to
-track sub-context granularity through a component IFC cannot analyse.
+**Why it is hard:** an LLM context window merges everything in it. A runtime that plans in a typed
+intermediate representation can achieve field-level granularity *within* a single plan, because the
+plan is a structure it can analyse. Across turns the connecting medium is the model's context, whose
+transfer function is join-everything. There is no sound way to track sub-context granularity through
+a component IFC cannot analyse.
 
 **Partial mitigations:** keep the lattice narrow (two or three high-severity labels, few guarded
 sinks, so most actions are unaffected); sound declassification via sanitizers with out-of-band
@@ -246,10 +252,8 @@ mandates (§2.3) but the credential does not enforce.
 **Why this is serious.** This exact check is missed in practice, repeatedly. SEP-2567 itself
 documents the reference Python SDK routing by `Mcp-Session-Id` alone "without verifying that the
 authenticated identity on the request matches the one that created the session, so a leaked session
-ID allows hijack by any other authenticated principal." The same class of omission is present in
-Plasm: one MCP handler resolved a caller-supplied session reference without the ownership check its
-sibling handlers performed. A check missed in a reference SDK and in a deployed runtime will be
-missed elsewhere.
+ID allows hijack by any other authenticated principal." A check that a reference SDK omits is a check
+other implementations will omit.
 
 **Why the decision stands.** A principal claim in the payload carries four costs: it creates a second
 authority for a fact the auth layer already
@@ -307,13 +311,14 @@ SEP's answer is "keep lifetimes short and don't need revocation." A deployment w
 requirement to kill a specific handle immediately gets no help, and a reviewer with that requirement
 will notice.
 
-### 6.5 Adoption: one implementation, one vendor, no working group
+### 6.5 Adoption: reference implementation exists; official SDK still required
 
-**There is no reference implementation, and Extensions Track requires one in an official SDK before
-review.** Plasm is a motivating consumer whose deployed `logical_session_ref` demonstrates the
-problem; it is not a prototype of the remedy, and the SEP now says so plainly. Nothing has been built
-in an official SDK, and the client half — persisting a handle per conversation and attaching it to
-request `_meta` — is both the novel part of the claim and the part no SDK exercises today.
+**A third-party TypeScript reference implementation exists** (this repository), including
+conformance-style e2e tests and an IFC worked-example fixture. Extensions Track nonetheless
+requires an implementation in an official SDK before review. Nothing has been built in an official
+SDK yet. The client half — persisting a handle per conversation and attaching it to request
+`_meta` — is both the novel part of the claim and the part no SDK exercises today, so a
+server-only prototype would not close the gap.
 
 There is also no security, memory, or agent-state Working or Interest Group to sponsor the proposal,
 and Extensions Track requires an associated group.
@@ -331,7 +336,7 @@ allies rather than an audience that must first be convinced the problem exists.
 ### 6.6 Complexity relative to demonstrated demand
 
 A maintainer applying the SEP-2084 standard — "adding a capability is effectively permanent" — will
-ask why a private convention per server is not sufficient. The answer is the five incompatible
+ask why a private convention per server is not sufficient. The answer is the four incompatible
 mechanisms and the fact that none of them is verifiable or ordered. This remains an argument from
 principle rather than from a queue of people asking MCP for this specific mechanism.
 
@@ -351,10 +356,19 @@ must be authoritative for, which is a much larger proposal. The practical conseq
 client holds N handles for what a user calls one conversation. This is the correct behaviour and a
 likely source of confusion.
 
-**7.3 Compaction.** SEP-2567 notes handles can be lost to context compaction. Rotation means the
-newest handle is in the most recent turn and normally survives, and exchange recovers from an expired
-one; but a client that compacts away all handles loses the conversation. Whether that is acceptable
-depends on client behaviour the extension cannot constrain.
+**7.3 Client-side persistence.** SEP-2567 notes its handles can be lost to context compaction,
+because there the handle is a string in a tool result and a string in a tool argument — it lives in
+the transcript, and compaction operates on the transcript. That failure mode does not apply here.
+The handle is carried in `params._meta` (§5.1) and selected by the client from handles it has
+received (§4.2); it is client state, not prompt content, and an operation that discards messages from
+a model's context window cannot reach it.
+
+The residual concern is different and narrower: the client MUST durably persist the handle across
+its own restarts, and the extension cannot compel it to. A client that loses its handle store starts
+a new conversation — exchange (§4.4) does not help, since exchange requires presenting the expired
+handle. This is the same persistence obligation SEP-2567 places on clients, relocated from
+"persist the transcript" to "persist one string per conversation", which is a smaller and more
+explicit requirement but still one the extension can only state, not enforce.
 
 **7.4 Retention versus ergonomics.** A conversation resumed after `conversationRetentionSeconds` gets
 a new `cid` — correct, but hostile if a user returns after months and finds the agent has forgotten

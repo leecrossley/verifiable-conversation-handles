@@ -1,10 +1,14 @@
 import { CID_BYTE_LENGTH } from './schema/draft/schema.js';
 
+export function cidToHex(cid: Uint8Array): string {
+  return Buffer.from(cid).toString('hex');
+}
+
 export function cidToConversationId(cid: Uint8Array): string {
   if (cid.length !== CID_BYTE_LENGTH) {
     throw new Error(`cid must be ${CID_BYTE_LENGTH} bytes`);
   }
-  return Buffer.from(cid).toString('hex');
+  return cidToHex(cid);
 }
 
 export function conversationIdToCid(conversationId: string): Uint8Array {

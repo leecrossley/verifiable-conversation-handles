@@ -25,7 +25,17 @@ describe('codec §6.2', () => {
     expect(Buffer.from(decoded!.state).toString()).toBe('v1');
   });
 
-  it('sep-0000-s6.2-tag-before-parse rejects tampered tag', () => {
+  it('sep-0000-handle-carries-no-principal + sep-0000-no-identifying-data-in-handle: §6.2 body has no principal field', () => {
+    const handle = mintHandle(keys, { cid, exp: FAR_FUTURE_EXP, seq: 1, keyId: 0 });
+    const decoded = verifyHandle(keys, handle);
+    expect(decoded).toBeTruthy();
+    expect(Object.keys(decoded!)).toEqual(
+      expect.arrayContaining(['version', 'keyId', 'cid', 'exp', 'seq', 'state']),
+    );
+    expect(Object.keys(decoded!)).toHaveLength(6);
+  });
+
+  it('sep-0000-reject-bad-tag-regardless-of-fields rejects tampered tag', () => {
     const handle = mintHandle(keys, { cid, exp: FAR_FUTURE_EXP, seq: 1, keyId: 0 });
     const tampered = flipHandleByte(handle);
     expect(verifyHandle(keys, tampered)).toBeNull();
@@ -38,7 +48,7 @@ describe('codec §6.2', () => {
     expect(verifyHandle(keys, h1)?.keyId).toBe(1);
   });
 
-  it('sep-0000-s4.4-expiry rejects expired unless allowExpired', () => {
+  it('sep-0000-reject-expired-except-exchange rejects expired unless allowExpired', () => {
     const handle = mintHandle(keys, { cid, exp: 1_000, seq: 1, keyId: 0 });
     expect(verifyHandle(keys, handle, { now: () => 2_000 })).toBeNull();
     expect(verifyHandle(keys, handle, { now: () => 2_000, allowExpired: true })?.exp).toBe(1_000);

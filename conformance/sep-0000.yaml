@@ -1,55 +1,200 @@
+# Traceability file for SEP-0000 (Verifiable Conversation Handles), per SEP-2484.
+# Every MUST / MUST NOT / SHOULD / SHOULD NOT in the Specification section has a row.
+# MAY-level statements do not require rows and are omitted.
+# Renumber `sep:` and all check IDs when the SEP receives its PR number.
+
 sep: 0000
-spec_url: conversation-identity-sep-draft.md
+spec_url: https://modelcontextprotocol.io/extensions/conversation-handle
 requirements:
-  - text: "Clients supporting this extension MUST advertise it in _meta clientCapabilities.extensions"
-    check: sep-0000-s1-negotiation
-  - text: "Servers supporting this extension MUST advertise it in the server/discover response"
-    check: sep-0000-s1-negotiation
-  - text: "Clients MUST NOT parse, interpret, construct, derive, truncate, re-encode, or modify a handle"
-    check: sep-0000-s2.1-client-opacity
-  - text: "A server issuing conversation handles MUST be able to determine authenticity from the handle alone"
-    check: sep-0000-s6.2-roundtrip
-  - text: "A server MUST reject a presented handle that fails authenticity"
-    check: sep-0000-s6.2-tag-before-parse
-  - text: "Servers MUST record principal association and MUST NOT disclose state to other principals"
-    check: sep-0000-s2.3-cross-principal
-  - text: "Servers MUST authorize every request on the authenticated identity"
-    check: sep-0000-s2.3-unauthenticated
-  - text: "When no handle is present, server MUST mint or return none per onMissingHandle"
-    check: sep-0000-s4.1-establishment
-  - text: "Every response to a request that carried a valid handle MUST rotate seq"
-    check: sep-0000-s4.2-rotation
-  - text: "Servers MUST be able to determine supersession and SHOULD report supersededHandlePresented"
-    check: sep-0000-s4.3-supersession-detect
-  - text: "Servers MUST support exchange for expired but authentic handles"
-    check: sep-0000-s4.4-expiry-exchange
-  - text: "Servers MUST NOT treat an expired handle as valid for the presenting request itself"
-    check: sep-0000-s4.4-expiry-reject
-  - text: "On fork the server MUST mint a fresh cid and record parent"
-    check: sep-0000-s4.5-fork
-  - text: "The handle MUST be carried in params._meta only"
-    check: sep-0000-s5.1-tool-arg-ignored
-  - text: "Servers MUST NOT accept a handle from tool arguments"
-    check: sep-0000-s5.1-tool-arg-ignored
-  - text: "Conversation handles MUST NOT influence tools/list results"
-    check: sep-0000-s6.4-list-invariant
-  - text: "Verifiers MUST compare the tag in constant time and verify tag before interpreting fields"
-    check: sep-0000-s6.2-tag-before-parse
-  - text: "Servers MUST support at least two concurrently valid key_id values"
-    check: sep-0000-s6.2-dual-key-id
-  - text: "onMissingHandle none returns no handle"
-    check: sep-0000-s7-on-missing-none
-  - text: "Servers MUST NOT resolve missing/invalid/expired/retired handles to existing conversation state"
-    check: sep-0000-s8-missing-handle
-  - text: "cid MUST be drawn from a cryptographically strong random source"
-    check: sep-0000-s3-entropy-cid
-  - text: "Servers MUST respect client-advertised maxHandleBytes on presented handles"
-    check: sep-0000-s6.2-max-handle-bytes
-  - text: "Handle failures MUST use the normative §8 error envelope (JSON-RPC or tools/call isError profile)"
-    check: sep-0000-s8-error-code-range
-  - text: "Servers MAY purge conversation records after retention policy elapses"
-    check: sep-0000-s9-retention-purge
-  - text: "Proof-of-possession binding (§5.2)"
-    excluded: "optional MAY; not implemented in v1 reference"
-  - text: "Asymmetric/JWS profile (§6.3)"
-    excluded: "optional MAY; not implemented in v1 reference"
+
+  # ---------------------------------------------------------------- §1 Negotiation
+  - check: sep-0000-client-advertises-extension
+    text: "Clients supporting this extension MUST advertise it in `_meta[\"io.modelcontextprotocol/clientCapabilities\"].extensions` on every request on which they carry a handle"
+  - check: sep-0000-server-advertises-extension
+    text: "Servers supporting this extension MUST advertise it in the `server/discover` response"
+
+  # ---------------------------------------------------------------- §2.1 Wire representation
+  - check: sep-0000-handle-is-json-string
+    text: "A conversation handle MUST be represented on the wire as a single JSON string"
+  - check: sep-0000-client-returns-handle-verbatim
+    text: "Clients MUST treat it as an uninterpreted string and return it verbatim"
+  - text: "Servers MUST NOT require clients to understand a handle's internal structure"
+    excluded: "Negative capability requirement on server design. No message exercises it; the observable dual is sep-0000-client-returns-handle-verbatim, which passes for any client that never parses."
+
+  # ---------------------------------------------------------------- §2.2 Properties
+  - check: sep-0000-reject-forged-handle
+    text: "Handles MUST be integrity-protected under key material held only by the issuing deployment. A server MUST reject a presented handle that it did not issue, or that has been modified"
+  - check: sep-0000-cid-stable-across-handles
+    text: "The handle MUST determine a stable conversation identifier, generated by the server from a cryptographically secure source with at least 128 bits of entropy, constant across every handle issued for that conversation"
+  - check: sep-0000-handle-determines-expiry
+    text: "The handle MUST determine an absolute expiry"
+  - check: sep-0000-seq-strictly-increases
+    text: "The handle MUST determine a sequence number that strictly increases with each handle the server issues for a given `cid`"
+  - check: sep-0000-reject-inauthentic-or-expired
+    text: "A server MUST reject a presented handle that fails authenticity or whose `exp` has passed, except for exchange under §4.4"
+
+  # ---------------------------------------------------------------- §2.3 No principal
+  - check: sep-0000-handle-carries-no-principal
+    text: "A conversation handle MUST NOT carry a principal identifier, user identifier, tenant identifier, or any other value derived from the identity of the caller"
+    note: "Decidable only against the §6.2 encoding, where the layout is specified. See the exclusion on §5.3 for servers using a proprietary encoding."
+  - check: sep-0000-handle-not-authorization
+    text: "A conversation handle is not an authorization credential and MUST NOT be treated as one"
+    note: "Exercised as: a request carrying a valid handle but no/insufficient authorization is refused."
+  - text: "Servers MUST authorize every request on the authenticated identity carried by the transport's authorization layer, exactly as they would if no handle were present"
+    excluded: "Restates the core authorization requirement rather than adding observable behaviour of this extension. Covered by the core authorization conformance scenarios."
+  - check: sep-0000-no-cross-principal-conversation-state
+    text: "A server MUST NOT disclose or mutate conversation-scoped state on behalf of a principal other than the one the conversation is associated with"
+    note: "Highest-risk requirement in the specification (see Security Implications). Two principals, one handle, assert refusal for the non-owning principal."
+  - text: "Servers SHOULD document how they represent and enforce the principal-conversation association"
+    excluded: "Documentation requirement; not observable on the wire."
+
+  # ---------------------------------------------------------------- §2.4 Audience
+  - check: sep-0000-handle-rejected-by-other-server
+    text: "A handle MUST NOT be honoured by a server other than the one that issued it, or a replica sharing its key material"
+  - check: sep-0000-asymmetric-audience-checked
+    text: "Servers using the OPTIONAL asymmetric profile MUST include and check an explicit audience value"
+    note: "Conditional on the server advertising `profile: asymmetric`; skipped otherwise."
+
+  # ---------------------------------------------------------------- §3 State commitment
+  - text: "Servers MUST treat the state commitment as advisory input to their own logic"
+    excluded: "Internal disposition. No message distinguishes a server that treats the value as advisory from one that does not."
+  - check: sep-0000-state-commitment-not-authorization
+    text: "Servers MUST NOT treat the state commitment's presence or contents as authorization for anything"
+    note: "Exercised as: a request whose handle carries a state commitment is authorized identically to one whose handle carries none."
+  - text: "Servers SHOULD keep the state commitment small — a version number, a checkpoint identifier, or a hash rather than serialized state"
+    excluded: "No decidable threshold for 'small'. The enforceable bound is `maxHandleBytes`, covered by sep-0000-respect-max-handle-bytes."
+  - check: sep-0000-respect-max-handle-bytes
+    text: "Servers MUST respect a client's advertised `maxHandleBytes` and MUST return a clear error rather than issuing a handle that exceeds it"
+    note: "Checks that no issued handle exceeds the advertised limit, and that an error is returned when one would. 'Clear' is not decidable and is not asserted."
+  - text: "Servers SHOULD NOT use the state commitment as a general-purpose state transport"
+    excluded: "Restates the size guidance as intent. Not separately decidable from sep-0000-respect-max-handle-bytes."
+
+  # ---------------------------------------------------------------- §4.1 Establishment
+  - check: sep-0000-no-dedicated-establishment-method
+    text: "Servers MUST NOT require a dedicated method or tool call to obtain a handle"
+    note: "A first request carrying no handle receives one (or none, per `onMissingHandle`) without any prior call."
+  - check: sep-0000-mint-or-decline-per-setting
+    text: "The server MUST either mint a new conversation and return a handle, or return no handle, according to its advertised `onMissingHandle` setting"
+  - check: sep-0000-mirrors-not-accepted-as-input
+    text: "Servers MUST NOT accept the advisory mirrors as input"
+    note: "Send `conversationId`/`seq` in the request with no `handle`; assert the server does not resolve a conversation from them."
+  - check: sep-0000-client-orders-by-seq
+    text: "Clients MUST use `seq` solely to order handles they have received"
+  - text: "Clients MUST NOT rely on any mirrored field for a security decision, and MUST NOT attempt to reconstruct a handle from them"
+    excluded: "Client-internal decision-making. A client that fabricates a handle is caught by sep-0000-reject-forged-handle on the server side; no client-observable message distinguishes the reliance itself."
+
+  # ---------------------------------------------------------------- §4.2 Rotation
+  - check: sep-0000-rotate-on-state-commitment-change
+    text: "A server MUST include a replacement handle when the state commitment it requires on subsequent requests differs from the value carried by the presented handle"
+  - check: sep-0000-rotate-near-expiry
+    text: "A server SHOULD include a replacement handle when the remaining lifetime of the presented handle is less than half of `handleLifetimeSeconds`"
+  - check: sep-0000-replacement-seq-monotonic
+    text: "Every replacement handle MUST carry a `seq` strictly greater than every `seq` the server has previously issued for that `cid`"
+  - check: sep-0000-client-sends-highest-seq
+    text: "Clients MUST send the handle with the highest `seq` they have received for that conversation"
+    note: "Deliver replacement handles out of order (seq 4, then 2) and assert the client returns seq 4."
+  - check: sep-0000-client-discards-lower-seq
+    text: "Clients SHOULD discard a handle carrying a lower `seq` than one they have already received"
+
+  # ---------------------------------------------------------------- §4.3 Supersession
+  - check: sep-0000-superseded-handle-not-assumed-current
+    text: "A server MUST NOT treat a presented handle as current solely because it is authentic and unexpired"
+    note: "Rotate, then present the pre-rotation handle; assert the server's response reflects the current conversation state rather than the superseded one."
+  - text: "Servers SHOULD document their behaviour on detecting supersession"
+    excluded: "Documentation requirement; not observable on the wire."
+  - check: sep-0000-superseded-flag-set
+    text: "A server SHOULD set `supersededHandlePresented` to `true` in the response when the presented handle is not the most recent one it has issued for that `cid`"
+  - check: sep-0000-supersession-not-rejected
+    text: "A server MUST NOT reject a request solely because the handle it presented was superseded"
+
+  # ---------------------------------------------------------------- §4.4 Expiry and exchange
+  - check: sep-0000-exchange-expired-handle
+    text: "Servers MUST support exchange: a request presenting an expired but otherwise authentic handle MUST be answered with a fresh handle for the same `cid`"
+    note: "Requires the harness to control time or the server to accept a short configured lifetime."
+    issue: https://github.com/modelcontextprotocol/conformance/issues/TBD-clock-control
+  - check: sep-0000-expired-handle-not-sufficient
+    text: "Servers MUST NOT treat an expired handle as satisfying §2.2 for the presenting request itself"
+    note: "The exchange response supplies a new handle but the original request is not served from conversation state."
+
+  # ---------------------------------------------------------------- §4.5 Forking
+  - check: sep-0000-fork-mints-fresh-cid
+    text: "On fork the server MUST mint a fresh `cid` with at least 128 bits of entropy, and MUST record the parent `cid`"
+    note: "Fresh-and-distinct `cid` is observable. Parent recording is observable only if the server exposes lineage; assert the fresh `cid` and treat parent recording as covered by retention behaviour."
+  - text: "Servers SHOULD document what a forked conversation inherits from its parent"
+    excluded: "Documentation requirement; not observable on the wire."
+
+  # ---------------------------------------------------------------- §4.6 Retention
+  - check: sep-0000-advertise-retention
+    text: "Servers SHOULD advertise `conversationRetentionSeconds`"
+  - text: "Servers SHOULD retain conversation state for at least `conversationRetentionSeconds`"
+    excluded: "Requires the harness to advance time across the full retention window, which may be days."
+    issue: https://github.com/modelcontextprotocol/conformance/issues/TBD-clock-control
+  - check: sep-0000-retired-cid-not-silently-reused
+    text: "Servers MUST NOT silently treat a retired conversation as a fresh one; they MUST either mint a new `cid` and report it, or return an error"
+  - text: "Servers MUST NOT reuse a retired `cid`"
+    excluded: "Requires observing conversation identifiers across a full retention expiry and re-mint cycle."
+    issue: https://github.com/modelcontextprotocol/conformance/issues/TBD-clock-control
+
+  # ---------------------------------------------------------------- §5 Carriage and disclosure
+  - check: sep-0000-handle-carried-in-meta
+    text: "The handle MUST be carried in `params._meta[\"io.modelcontextprotocol/conversation-handle\"].handle`"
+  - check: sep-0000-reject-handle-in-tool-arguments
+    text: "Servers MUST NOT accept a conversation handle from tool arguments, resource URIs, prompt arguments, or any other position whose contents are authored by the model; a server that encounters a handle-shaped value in such a position MUST ignore it"
+    note: "Central design requirement. Send a valid handle as a tool argument with none in `_meta`; assert no conversation is resolved."
+  - text: "Clients SHOULD NOT render the handle into model context"
+    excluded: "Client rendering; not observable at the protocol level."
+  - check: sep-0000-pop-binding-when-available
+    text: "Servers SHOULD bind a handle to a proof-of-possession key where the MCP authorization framework's DPoP work applies"
+    note: "Conditional on the deployment supporting DPoP; skipped otherwise."
+  - check: sep-0000-no-identifying-data-in-handle
+    text: "Servers MUST NOT place directly or indirectly identifying information in a handle, and MUST NOT embed a principal, user, tenant, or account identifier, or any keyed derivation of one"
+    note: "Decidable only against the §6.2 encoding, whose layout has no field for such a value. Servers using a proprietary encoding are checked structurally where possible and otherwise excluded below."
+  - text: "Servers using a proprietary (non-§6.2) encoding MUST NOT place identifying information in a handle"
+    excluded: "The handle is opaque bytes under an encoding the harness cannot decode. Not decidable without the server's key material."
+  - text: "Servers SHOULD NOT place application state, policy details, or business data in the state commitment"
+    excluded: "Same opacity problem; the commitment is server-defined and not decodable by the harness."
+
+  # ---------------------------------------------------------------- §6 Handle construction
+  - check: sep-0000-reject-bad-tag-regardless-of-fields
+    text: "A verifier MUST reject a handle whose tag does not verify, whatever the values of the other fields"
+    note: "Present a handle with a valid-looking body, a far-future `exp`, a high `seq`, and a corrupted tag."
+  - check: sep-0000-reject-expired-except-exchange
+    text: "A verifier MUST reject a handle whose `exp` has passed, except for exchange (§4.4)"
+  - text: "Tag comparison SHOULD be constant-time"
+    excluded: "Timing side-channel property; implementation hardening, not wire-observable. Exempt under SEP-2484's scope section."
+  - text: "Servers MUST support at least two concurrently valid `key_id` values so key rotation does not invalidate live conversations"
+    excluded: "Key rotation is not triggerable through the protocol; the harness cannot induce a second `key_id`."
+    issue: https://github.com/modelcontextprotocol/conformance/issues/TBD-key-rotation-hook
+  - check: sep-0000-asymmetric-profile-constraints
+    text: "An asymmetric-profile server MUST use a JWS Compact Serialization with `typ` set to `mcp-ch+jwt` and an explicit `kid`, MUST NOT accept `alg: none` or any algorithm it does not advertise, and MUST advertise the profile in its settings object"
+    note: "Conditional on `profile: asymmetric`. Includes an `alg: none` rejection assertion."
+  - check: sep-0000-asymmetric-publishes-jwks
+    text: "An asymmetric-profile server SHOULD publish a JWKS"
+  - check: sep-0000-lists-invariant-across-conversations
+    text: "Conversation handles MUST NOT influence the results of `tools/list`, `resources/list`, or `prompts/list`; servers MUST NOT vary list results by conversation"
+    note: "Two distinct conversations, identical list requests, byte-identical results."
+
+  # ---------------------------------------------------------------- §7 Settings
+  - check: sep-0000-advertise-handle-lifetime
+    text: "Servers SHOULD advertise `handleLifetimeSeconds`"
+  - check: sep-0000-advertise-on-missing-handle
+    text: "Servers SHOULD advertise `onMissingHandle`"
+  - check: sep-0000-jwks-uri-required-for-asymmetric
+    text: "`jwksUri` is REQUIRED when `profile` is `asymmetric`"
+
+  # ---------------------------------------------------------------- §8 Failure semantics
+  - check: sep-0000-invalid-handle-not-resolved
+    text: "Servers MUST NOT resolve a request with no handle, a handle failing integrity verification, an expired handle (other than for exchange), or a handle whose `cid` is no longer retained, to an existing conversation's state"
+  - check: sep-0000-treated-as-no-conversation
+    text: "In each failure case the server MUST treat the request as not established to belong to any conversation"
+  - text: "Whether the server mints, proceeds without conversation-scoped state, or refuses SHOULD be documented"
+    excluded: "Documentation requirement; not observable on the wire."
+  - text: "Servers whose correctness depends on conversation scope SHOULD fail closed"
+    excluded: "Conditional on a server-internal property ('whose correctness depends on'). The harness cannot determine which servers are in scope."
+  - check: sep-0000-actionable-failure-error
+    text: "Servers SHOULD return an actionable error rather than a generic one"
+    note: "Asserts the error `data` carries `extension` and `reason`. 'Actionable' is otherwise not decidable."
+  - check: sep-0000-error-code-range
+    text: "Error codes for this extension SHOULD be allocated outside `-32768`..`-32000`, and MUST NOT be drawn from the `-32020`..`-32099` sub-range"
+  - check: sep-0000-missing-capability-error
+    text: "Where the extension is mandatory for an operation and the client did not advertise it, servers SHOULD return `MissingRequiredClientCapabilityError` (-32021)"

@@ -7,6 +7,4 @@ export * from './client.js';
 export * from './integrate.js';
 export * from './http-auth.js';
 export * from './http-server.js';
-export * from './fixtures/app.js';
-export * from './fixtures/memory-tools.js';
 export * from './schema/draft/schema.js';

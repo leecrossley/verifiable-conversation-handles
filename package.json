@@ -1,7 +1,7 @@
 {
-  "name": "@tools-plasm/conversation-handle",
+  "name": "verifiable-conversation-handles",
   "version": "0.1.0",
-  "description": "Experimental reference implementation of tools.plasm/conversation-handle (SEP draft)",
+  "description": "Experimental reference implementation of io.modelcontextprotocol/conversation-handle (SEP draft)",
   "type": "module",
   "license": "MIT",
   "engines": {

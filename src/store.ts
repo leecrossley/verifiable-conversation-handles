@@ -1,4 +1,5 @@
 import { CID_BYTE_LENGTH } from './schema/draft/schema.js';
+import { cidToHex } from './cid.js';
 
 export interface ConversationRecord {
   cid: Uint8Array;
@@ -15,13 +16,20 @@ export interface ConversationStore {
   has(cid: Uint8Array): boolean;
   create(record: ConversationRecord): void;
   update(cid: Uint8Array, patch: Partial<Pick<ConversationRecord, 'latestSeq' | 'memory' | 'retired'>>): void;
+  /** Atomically append one memory entry for a conversation. */
+  appendMemory(cid: Uint8Array, text: string): void;
+  /**
+   * Bump `latestSeq` only when it still equals `expectedLatestSeq`.
+   * Returns the new seq on success, or `undefined` on conflict.
+   */
+  compareAndBumpSeq(cid: Uint8Array, expectedLatestSeq: number): number | undefined;
   isRetired(cid: Uint8Array): boolean;
   markRetired(cid: Uint8Array): void;
   listRecords(): ConversationRecord[];
 }
 
 function cidKey(cid: Uint8Array): string {
-  return Buffer.from(cid).toString('hex');
+  return cidToHex(cid);
 }
 
 export class InMemoryConversationStore implements ConversationStore {
@@ -68,6 +76,29 @@ export class InMemoryConversationStore implements ConversationStore {
         this.retiredCids.add(key);
       }
     }
+  }
+
+  compareAndBumpSeq(cid: Uint8Array, expectedLatestSeq: number): number | undefined {
+    const key = cidKey(cid);
+    const existing = this.records.get(key);
+    if (!existing) {
+      throw new Error('conversation not found');
+    }
+    if (existing.latestSeq !== expectedLatestSeq) {
+      return undefined;
+    }
+    const next = expectedLatestSeq + 1;
+    existing.latestSeq = next;
+    return next;
+  }
+
+  appendMemory(cid: Uint8Array, text: string): void {
+    const key = cidKey(cid);
+    const existing = this.records.get(key);
+    if (!existing) {
+      throw new Error('conversation not found');
+    }
+    existing.memory = [...existing.memory, text];
   }
 
   isRetired(cid: Uint8Array): boolean {

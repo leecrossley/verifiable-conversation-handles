@@ -6,8 +6,6 @@ import type { ConversationHandleFailureReason } from './schema/draft/schema.js';
 export interface ActiveConversation {
   record: ConversationRecord;
   superseded: boolean;
-  /** Set when an expired handle is presented — tool may shape an exchange response. */
-  exchangeOnly?: boolean;
   /** Present when the request carried a decoded handle. */
   decoded?: DecodedHandle;
 }
@@ -39,6 +37,7 @@ export type HandlePresentation =
 export interface PresentHandleFailure {
   reason: ConversationHandleFailureReason;
   message: string;
+  code?: number;
 }
 
 export type PresentHandleResult =
