@@ -1,0 +1,52 @@
+conformance/e2e/errors-and-meta.test.ts
+  s_d537f7855ce27b::t_4e57060561c3e7 2,32,34,36,39,64-70,96,98,100,105-109,127,129,134
+  s_d537f7855ce27b::t_dcb3765e46a180 3-4
+conformance/e2e/supersession.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2-3
+  s_d537f7855ce27b::t_f4eeb21086dc0d 33,35,56,58,78,80
+src/test-helpers.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 1-12,14-17,20,22-26,28-39,41-42,44
+  s_d537f7855ce27b::t_5156fa8a987d61 13,18-19,21,27,40,43
+package.json
+  s_d537f7855ce27b::t_67913b44ee5459 19
+  s_d537f7855ce27b::t_dcb3765e46a180 22-24
+conformance/e2e/establishment-rotation.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2
+conformance/e2e/security.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2-3
+  s_d537f7855ce27b::t_ee43470c10ff1d 45,47-48,62,64,66,69,83,85,87,90
+conformance/e2e/fork-and-lists.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2
+conformance/e2e/negotiation.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2
+conformance/ifc-e2e.test.ts
+  s_d537f7855ce27b::t_f4eeb21086dc0d 55,67-71,113
+  s_d537f7855ce27b::t_dcb3765e46a180 5,110
+src/codec.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2,4
+src/index.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 1-63
+tsconfig.build.json
+  s_d537f7855ce27b::t_dcb3765e46a180 1-13
+conformance/e2e/client-concurrency.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2
+conformance/e2e/exchange.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2-3
+  s_d537f7855ce27b::t_f4eeb21086dc0d 36,61-62,65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "623fa24ef5fe9ec4f1da7c1abf3375d64dcf98a8",
+  "prompts": {},
+  "sessions": {
+    "s_d537f7855ce27b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04378-a6d5-7a03-b918-7203f38bdb0f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
