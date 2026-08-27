@@ -1,0 +1,31 @@
+src/request-meta.test.ts
+  s_d537f7855ce27b::t_75e73b9616f837 33,46,50-51,65,67,119,123-124
+  s_d537f7855ce27b::t_1c5054f4e53c94 89,91-92
+  s_d537f7855ce27b::t_f33b8db324864f 44
+  s_d537f7855ce27b::t_b07f8a73ff528e 1-32,34-43,45,47-49,52-64,66,68-88,90,93-118,120-122,125-134
+src/extension.test.ts
+  s_d537f7855ce27b::t_15aa1409f7f68c 18,22-23
+src/request-meta.ts
+  s_d537f7855ce27b::t_75e73b9616f837 10,16-17
+  s_d537f7855ce27b::t_1c5054f4e53c94 36
+  s_d537f7855ce27b::t_b07f8a73ff528e 11,22-23,28-35,37-41,49-51
+  s_d537f7855ce27b::t_d81c04097b9b4f 52
+src/presentation-resolver.ts
+  s_d537f7855ce27b::t_b07f8a73ff528e 64-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b8bd6f81246f49bdfc02cef397f12e4af5fcd798",
+  "prompts": {},
+  "sessions": {
+    "s_d537f7855ce27b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04378-a6d5-7a03-b918-7203f38bdb0f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Lee Crossley <leee@hotmail.co.uk>"
+    }
+  }
+}
