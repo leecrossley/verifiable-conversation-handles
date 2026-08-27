@@ -1,0 +1,27 @@
+package.json
+  s_d537f7855ce27b::t_1fa540d399774b 4
+conversation-identity-sep-draft.md
+  s_d537f7855ce27b::t_1fa540d399774b 13,230,233-236,253,256,276,409,516,539,678,889
+README.md
+  s_d537f7855ce27b::t_1fa540d399774b 4,37-40
+src/schema/draft/schema.ts
+  s_d537f7855ce27b::t_1fa540d399774b 2,6-7
+conformance/sep-0000.yaml
+  s_d537f7855ce27b::t_1fa540d399774b 140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "3ba0050d1a54af0b26f160a2a1455651df3d669c",
+  "prompts": {},
+  "sessions": {
+    "s_d537f7855ce27b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04378-a6d5-7a03-b918-7203f38bdb0f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Lee Crossley <leee@hotmail.co.uk>"
+    }
+  }
+}
