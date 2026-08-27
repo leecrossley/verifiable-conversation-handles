@@ -1,0 +1,46 @@
+src/index.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 1-63
+conformance/e2e/supersession.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2-3,34,56,77
+conformance/ifc-e2e.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 5,66,105
+conformance/e2e/errors-and-meta.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2-3,36,62,95,119
+src/codec.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2,4
+package.json
+  s_d537f7855ce27b::t_dcb3765e46a180 22-24
+  s_d537f7855ce27b::t_67913b44ee5459 19
+conformance/e2e/security.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2-3,47,66,85
+conformance/e2e/exchange.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2-3,36,64
+conformance/e2e/fork-and-lists.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2
+conformance/e2e/negotiation.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2
+src/test-helpers.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 1-44
+conformance/e2e/client-concurrency.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2
+tsconfig.build.json
+  s_d537f7855ce27b::t_dcb3765e46a180 1-13
+conformance/e2e/establishment-rotation.test.ts
+  s_d537f7855ce27b::t_dcb3765e46a180 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ce194ed2ab57c4fce6ff4f4ab22ac44b953771c1",
+  "prompts": {},
+  "sessions": {
+    "s_d537f7855ce27b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04378-a6d5-7a03-b918-7203f38bdb0f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Lee Crossley <leee@hotmail.co.uk>"
+    }
+  }
+}
